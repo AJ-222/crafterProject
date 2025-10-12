@@ -11,9 +11,13 @@ import matplotlib.pyplot as plt
 
 #############helpers#############
 def arrayToTensor(obs, device):
+    obs = np.array(obs, dtype=np.uint8)
+    if obs.shape != (64, 64, 3):
+        raise ValueError(f"Received invalid observation shape: {obs.shape}. Expected (64, 64, 3).")
+
     obs_tensor = torch.tensor(obs, dtype=torch.float32, device=device) / 255.0
     obs_tensor = obs_tensor.permute(2, 0, 1)
-    obs_tensor = obs_tensor.unsqueeze(0)    
+    obs_tensor = obs_tensor.unsqueeze(0)
     return obs_tensor
 
 
@@ -66,7 +70,9 @@ def train(env, policy_net, num_episodes, learning_rate, gamma, device):
     for episode in range(num_episodes):
         saved_log_probs = []
         rewards = []
-        state = env.reset()
+        
+        state, info = env.reset()
+        
         done = False
         while not done:
             state_tensor = arrayToTensor(state, device)
@@ -76,9 +82,11 @@ def train(env, policy_net, num_episodes, learning_rate, gamma, device):
             action = dist.sample()
             
             saved_log_probs.append(dist.log_prob(action))
+            state, reward, terminated, truncated, info = env.step(action.item())
             
-            state, reward, done, info = env.step(action.item())
             rewards.append(reward)
+            done = terminated or truncated
+
         returns = []
         discounted_return = 0
         for r in reversed(rewards):

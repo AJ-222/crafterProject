@@ -19,12 +19,8 @@ def arrayToTensor(obs, device):
     obs_tensor = obs_tensor.permute(2, 0, 1)
     obs_tensor = obs_tensor.unsqueeze(0)
     return obs_tensor
-
-
-
-
 ###########################################
-#feature extractory
+#feature extraction
 class baseCNN(nn.Module):
     def __init__(self, feature_dim=512):
         super(baseCNN, self).__init__()

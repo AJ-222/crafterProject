@@ -66,7 +66,7 @@ def train(env, policy_net, num_episodes, learning_rate, gamma, device):
     for episode in range(num_episodes):
         saved_log_probs = []
         rewards = []
-        state, _ = env.reset()
+        state = env.reset()
         done = False
         while not done:
             state_tensor = arrayToTensor(state, device)
@@ -77,9 +77,8 @@ def train(env, policy_net, num_episodes, learning_rate, gamma, device):
             
             saved_log_probs.append(dist.log_prob(action))
             
-            state, reward, terminated, truncated, _ = env.step(action.item())
+            state, reward, done, info = env.step(action.item())
             rewards.append(reward)
-            done = terminated or truncated
         returns = []
         discounted_return = 0
         for r in reversed(rewards):
@@ -102,4 +101,4 @@ def train(env, policy_net, num_episodes, learning_rate, gamma, device):
             avg_reward = np.mean(all_rewards[-10:])
             print(f"Episode {episode + 1}/{num_episodes} | Avg Reward (last 10): {avg_reward:.2f}")
             
-    return all_rewards
+    return all_rewards, all_losses

@@ -20,6 +20,17 @@ from reinforceV1 import PolicyNetwork, train
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 LOG_DIR = './logdir/reinforce_base_run' 
 
+#GPU CHECK
+print("--------------------")
+print(f"Using device: {DEVICE}")
+if DEVICE.type == 'cuda':
+    print(f"GPU Name: {torch.cuda.get_device_name(0)}")
+else:
+    print("GPU not available, using CPU.")
+print("--------------------")
+
+
+
 os.makedirs(LOG_DIR, exist_ok=True)
 
 env = gym.make("CrafterReward-v1")

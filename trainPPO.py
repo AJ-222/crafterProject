@@ -9,7 +9,7 @@ import numpy as np
 import os
 from scipy.stats import gmean
 
-from ppo_agent import train_ppo
+from ppoAgentV1 import train_ppo
 
 #setup
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

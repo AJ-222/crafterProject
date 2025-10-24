@@ -30,9 +30,8 @@ print("--------------------")
 #environment setup
 os.makedirs(LOG_DIR, exist_ok=True)
 
-register(id='Crafter-v1', entry_point='crafter:Env')
-
-env = old_gym.make('Crafter-v1')
+register(id='CrafterPartial-v1', entry_point='crafter:Env')
+env = old_gym.make('CrafterPartial-v1')
 
 env = crafter.Recorder(
     env,

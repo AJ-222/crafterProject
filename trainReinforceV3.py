@@ -1,0 +1,118 @@
+# train.py (Updated for REINFORCE LSTM + Reward Shaping)
+
+import gym as old_gym
+from gym.envs.registration import register
+from shimmy import GymV21CompatibilityV0
+import crafter
+import torch
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import os
+from scipy.stats import gmean
+
+from reinforceV3 import ActorCriticLSTMNetwork as PolicyNetwork, train 
+
+from rewardShaping import RewardShaping
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+LOG_DIR = './logdir/reinforce_lstm_shaped_run'
+
+#devicecheck
+print("--------------------")
+print(f"Using device: {DEVICE}")
+if DEVICE.type == 'cuda':
+    print(f"GPU Name: {torch.cuda.get_device_name(0)}")
+else:
+    print("GPU not available, using CPU.")
+print("--------------------")
+################################################
+#environment setup
+os.makedirs(LOG_DIR, exist_ok=True)
+
+register(id='CrafterPartial-v1', entry_point='crafter:Env')
+env = old_gym.make('CrafterPartial-v1')
+
+env = crafter.Recorder(
+    env,
+    LOG_DIR,
+    save_stats=True,
+    save_video=False,
+    save_episode=False,
+)
+env = GymV21CompatibilityV0(env=env)
+
+env = RewardShaping(env)
+# ----------------------------------------
+
+################################################
+#hyperparameters
+LEARNING_RATE = 1e-4
+GAMMA = 0.99
+NUM_EPISODES = 2000 
+FEATURE_DIM = 512
+################################################
+#training
+num_actions = env.action_space.n
+policy_network = PolicyNetwork(num_actions=num_actions, feature_dim=FEATURE_DIM) 
+
+episode_rewards, episode_losses = train(
+    env=env,
+    policy_net=policy_network,
+    num_episodes=NUM_EPISODES,
+    learning_rate=LEARNING_RATE,
+    gamma=GAMMA,
+    device=DEVICE
+)
+print("\n--- Training Complete ---")
+env.close()
+################################################
+#evaluation
+print("\n--- Starting Evaluation ---")
+stats_path = os.path.join(LOG_DIR, 'stats.jsonl')
+try:
+    df = pd.read_json(stats_path, lines=True)
+    avg_cumulative_reward = df['reward'].mean()
+    print(f"\nAverage Cumulative Reward: {avg_cumulative_reward:.2f}")
+    avg_survival_time = df['length'].mean()
+    print(f"Average Survival Time: {avg_survival_time:.2f} steps")
+    print("\nAchievement Unlock Rates:")
+    achievement_cols = sorted([col for col in df.columns if 'achievement_' in col])
+    unlock_rates = []
+    if not achievement_cols:
+        print("  No achievement data found.")
+    else:
+        for ach in achievement_cols:
+            rate = df[ach].apply(lambda x: 1 if x > 0 else 0).mean()
+            unlock_rates.append(rate)
+            ach_name = ach.replace('achievement_', '').replace('_', ' ').title()
+            print(f"  - {ach_name:<25}: {rate:.2%}")
+    if unlock_rates:
+        geo_mean = gmean(np.array(unlock_rates) + 1e-9)
+        print(f"\nGeometric Mean of Unlock Rates: {geo_mean:.5f}")
+except FileNotFoundError:
+    print(f"ERROR: Could not find stats file at '{stats_path}'.")
+except Exception as e:
+    print(f"An error occurred during evaluation: {e}")
+
+model_path = os.path.join(LOG_DIR, 'reinforce_lstm_shaped_model.pth')
+torch.save(policy_network.state_dict(), model_path)
+print(f"\nModel saved to {model_path}")
+
+plt.figure(figsize=(10, 5))
+plt.plot(episode_rewards)
+plt.title("Total Reward per Episode (REINFORCE LSTM + Shaping)")
+plt.xlabel("Episode")
+plt.ylabel("Total Reward")
+plt.grid(True)
+plt.savefig(os.path.join(LOG_DIR, 'reward_plot.png'))
+plt.show()
+
+plt.figure(figsize=(10, 5))
+plt.plot(episode_losses)
+plt.title("Training Loss per Episode (REINFORCE LSTM + Shaping)")
+plt.xlabel("Episode")
+plt.ylabel("Loss")
+plt.grid(True)
+plt.savefig(os.path.join(LOG_DIR, 'loss_plot.png'))
+plt.show()

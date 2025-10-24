@@ -1,3 +1,5 @@
+# train_ppo_lstm.py
+
 import gym as old_gym
 from gym.envs.registration import register
 from shimmy import GymV21CompatibilityV0
@@ -9,12 +11,15 @@ import numpy as np
 import os
 from scipy.stats import gmean
 
+# Import the SB3 wrapper we still need
 from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3.common.vec_env.vec_frame_stack import VecFrameStack as FrameStack
+# NOTE: FrameStack is NOT imported
+
+# Import your new LSTM agent's training function
 from ppoAgentV2 import train_ppo
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-LOG_DIR = './logdir/ppo_lstm_framestack_run'
+LOG_DIR = './logdir/ppo_lstm_run' # New log directory for this experiment
 
 print("--------------------")
 print(f"Using device: {DEVICE}")
@@ -36,15 +41,18 @@ env = crafter.Recorder(
 )
 env = GymV21CompatibilityV0(env=env)
 
+# We still need DummyVecEnv for SB3, but FrameStack is removed.
 env = DummyVecEnv([lambda: env])
-env = FrameStack(env, n_stack=4)
+# The line for FrameStack is gone.
 
-TOTAL_TIMESTEPS = 200000
+# Set to a much longer run as discussed
+TOTAL_TIMESTEPS = 1000000 
 train_ppo(env=env, total_timesteps=TOTAL_TIMESTEPS, log_dir=LOG_DIR)
 
 print("\n--- Training Complete ---")
 env.close()
 
+# --- Evaluation (with the critical bug fix) ---
 print("\n--- Starting Evaluation ---")
 stats_path = os.path.join(LOG_DIR, 'stats.jsonl')
 try:
@@ -63,7 +71,11 @@ try:
         print("  No achievement data found.")
     else:
         for ach in achievement_cols:
-            rate = df[ach].mean()
+            # --- BUG FIX ---
+            # Convert achievement counts to binary 0 or 1 (unlocked or not)
+            rate = df[ach].apply(lambda x: 1 if x > 0 else 0).mean()
+            # -----------------
+            
             unlock_rates.append(rate)
             ach_name = ach.replace('achievement_', '').replace('_', ' ').title()
             print(f"  - {ach_name:<25}: {rate:.2%}")

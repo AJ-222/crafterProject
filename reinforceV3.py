@@ -70,12 +70,61 @@ def train(env, policy_net, num_episodes, learning_rate, gamma, device):
     policy_net.to(device)
     all_rewards = []
     all_losses = []
-    print(f"Starting Actor-Critic LSTM training on {device} for {num_episodes} episodes...")
-    
+    print(f"Starting Actor-Critic LSTM training on {device} for {num_episodes} episodes...") 
+
     for episode in range(num_episodes):
         saved_log_probs = []
         saved_values = []
         rewards = []
-        
+
         state, info = env.reset()
         hidden_state = policy_net.init_hidden(batch_size=1, device=device)
+
+        done = False
+        while not done:
+            state_tensor = arrayToTensor(state, device)
+
+            action_probs, state_value, next_hidden_state = policy_net(state_tensor, (hidden_state[0].detach(), hidden_state[1].detach()))
+            hidden_state = next_hidden_state 
+
+            dist = Categorical(action_probs)
+            action = dist.sample()
+
+            saved_log_probs.append(dist.log_prob(action))
+            saved_values.append(state_value.squeeze())
+
+            state, reward, terminated, truncated, info = env.step(action.item())
+            rewards.append(reward)
+            done = terminated or truncated
+
+        returns = []
+        discounted_return = 0
+        for r in reversed(rewards):
+            discounted_return = r + gamma * discounted_return
+            returns.insert(0, discounted_return)
+
+        returns = torch.tensor(returns, device=device)
+        returns = (returns - returns.mean()) / (returns.std() + 1e-9)
+
+        saved_values = torch.stack(saved_values)
+
+        advantage = returns - saved_values
+
+        policy_loss = [-log_prob * A for log_prob, A in zip(saved_log_probs, advantage.detach())]
+        policy_loss_sum = torch.stack(policy_loss).sum()
+
+        value_loss = F.mse_loss(saved_values, returns)
+        loss = policy_loss_sum + 0.5 * value_loss
+
+        optimizer.zero_grad()
+        all_losses.append(loss.item())
+        loss.backward()
+        optimizer.step()
+
+        total_reward = sum(rewards)
+        all_rewards.append(total_reward)
+        if (episode + 1) % 10 == 0:
+            avg_reward = np.mean(all_rewards[-10:])
+            print(f"Episode {episode + 1}/{num_episodes} | Avg Reward (last 10): {avg_reward:.2f}")
+
+    return all_rewards, all_losses

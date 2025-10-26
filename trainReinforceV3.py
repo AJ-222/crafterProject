@@ -1,5 +1,3 @@
-# train.py (Updated for REINFORCE LSTM + Reward Shaping)
-
 import gym as old_gym
 from gym.envs.registration import register
 from shimmy import GymV21CompatibilityV0

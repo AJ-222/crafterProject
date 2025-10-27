@@ -39,7 +39,7 @@ env = GymV21CompatibilityV0(env=env)
 
 ###########################################
 #training
-TOTAL_TIMESTEPS = 200000
+TOTAL_TIMESTEPS = 1000000
 train_ppo(env=env, total_timesteps=TOTAL_TIMESTEPS, log_dir=LOG_DIR)
 
 print("\n--- Training Complete ---")

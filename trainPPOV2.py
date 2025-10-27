@@ -36,7 +36,7 @@ env = crafter.Recorder(
 env = GymV21CompatibilityV0(env=env)
 
 env = DummyVecEnv([lambda: env])
-TOTAL_TIMESTEPS = 1000000 
+TOTAL_TIMESTEPS = 1000000
 train_ppo(env=env, total_timesteps=TOTAL_TIMESTEPS, log_dir=LOG_DIR)
 
 print("\n--- Training Complete ---")

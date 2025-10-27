@@ -41,7 +41,7 @@ env = GymV21CompatibilityV0(env=env)
 #hyperparameters
 LEARNING_RATE = 1e-4
 GAMMA = 0.99
-NUM_EPISODES = 2000
+NUM_EPISODES = 5000
 FEATURE_DIM = 512
 ################################################
 #training

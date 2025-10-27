@@ -5,13 +5,11 @@ import torch.optim as optim
 from torch.distributions import Categorical
 import numpy as np
 
-# --- Hyperparameters for Clipping and Entropy ---
-CLIP_GRAD_NORM = 0.5 # Max norm for gradient clipping
-ENTROPY_COEF = 0.01 # Weight for the entropy bonus in the loss
+CLIP_GRAD_NORM = 0.5
+ENTROPY_COEF = 0.01
 
 #############helpers#############
 def arrayToTensor(obs, device):
-    # ... (function remains the same) ...
     obs = np.array(obs, dtype=np.uint8)
     if obs.shape != (64, 64, 3):
         raise ValueError(f"Received invalid observation shape: {obs.shape}. Expected (64, 64, 3).")
@@ -21,9 +19,7 @@ def arrayToTensor(obs, device):
     return obs_tensor
 
 ###########################################
-#feature extraction (baseCNN remains the same)
 class baseCNN(nn.Module):
-    # ... (class remains the same) ...
     def __init__(self, feature_dim=512):
         super(baseCNN, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=32, kernel_size=8, stride=4)
@@ -41,9 +37,7 @@ class baseCNN(nn.Module):
         return features
 
 #########################################
-# ActorCriticLSTMNetwork remains the same
 class ActorCriticLSTMNetwork(nn.Module):
-    # ... (class remains the same) ...
     def __init__(self, num_actions, feature_dim=512, lstm_hidden_size=256):
         super(ActorCriticLSTMNetwork, self).__init__()
         self.feature_extractor = baseCNN(feature_dim=feature_dim)
@@ -67,18 +61,17 @@ class ActorCriticLSTMNetwork(nn.Module):
                 torch.zeros(1, batch_size, self.lstm_hidden_size).to(device))
 
 ###############################
-# --- UPDATED train Function ---
 def train(env, policy_net, num_episodes, learning_rate, gamma, device):
     optimizer = optim.Adam(policy_net.parameters(), lr=learning_rate)
     policy_net.to(device)
     all_rewards = []
     all_losses = []
-    print(f"Starting Actor-Critic LSTM (Entropy, Clip) training on {device} for {num_episodes} episodes...") # Updated print
+    print(f"Starting Actor-Critic LSTM (Entropy, Clip) training on {device} for {num_episodes} episodes...")
 
     for episode in range(num_episodes):
         saved_log_probs = []
         saved_values = []
-        saved_entropies = [] # <-- Store entropy for loss calculation
+        saved_entropies = []
         rewards = []
 
         state, info = env.reset()
@@ -95,13 +88,12 @@ def train(env, policy_net, num_episodes, learning_rate, gamma, device):
 
             saved_log_probs.append(dist.log_prob(action))
             saved_values.append(state_value.squeeze())
-            saved_entropies.append(dist.entropy()) # <-- Calculate and store entropy
+            saved_entropies.append(dist.entropy())
 
             state, reward, terminated, truncated, info = env.step(action.item())
             rewards.append(reward)
             done = terminated or truncated
 
-        # --- Calculations ---
         returns = []
         discounted_return = 0
         for r in reversed(rewards):
@@ -115,9 +107,7 @@ def train(env, policy_net, num_episodes, learning_rate, gamma, device):
              returns = (returns - returns.mean())
 
         saved_values = torch.stack(saved_values)
-        saved_entropies = torch.stack(saved_entropies) # <-- Stack entropies
-
-        # Ensure lengths match
+        saved_entropies = torch.stack(saved_entropies)
         min_len = min(len(returns), len(saved_values), len(saved_log_probs), len(saved_entropies))
         returns = returns[:min_len]
         saved_values = saved_values[:min_len]
@@ -128,23 +118,14 @@ def train(env, policy_net, num_episodes, learning_rate, gamma, device):
 
         policy_loss = [-log_prob * A for log_prob, A in zip(saved_log_probs, advantage.detach())]
         policy_loss_sum = torch.stack(policy_loss).sum()
-
         value_loss = F.mse_loss(saved_values, returns)
-
-        # --- MODIFIED LOSS: Add Entropy Bonus ---
-        # We want to *maximize* entropy, which is equivalent to minimizing negative entropy.
-        entropy_loss = -saved_entropies.mean() # Average entropy over the episode
+        entropy_loss = -saved_entropies.mean()
         loss = policy_loss_sum + 0.5 * value_loss + ENTROPY_COEF * entropy_loss
-        # ----------------------------------------
 
         optimizer.zero_grad()
         all_losses.append(loss.item())
         loss.backward()
-
-        # --- ADD GRADIENT CLIPPING ---
         torch.nn.utils.clip_grad_norm_(policy_net.parameters(), CLIP_GRAD_NORM)
-        # ---------------------------
-
         optimizer.step()
 
         total_reward = sum(rewards)

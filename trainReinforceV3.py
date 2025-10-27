@@ -8,13 +8,12 @@ import pandas as pd
 import numpy as np
 import os
 from scipy.stats import gmean
+from reinforceV3 import ActorCriticLSTMNetwork as PolicyNetwork, train
 
-from reinforceV3 import ActorCriticLSTMNetwork as PolicyNetwork, train 
-
-from rewardShaping import RewardShaping
+# from rewardShaping import RewardShaping
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-LOG_DIR = './logdir/reinforce_lstm_shaped_run'
+LOG_DIR = './logdir/reinforce_lstm_tuned_run' 
 
 #devicecheck
 print("--------------------")
@@ -25,12 +24,10 @@ else:
     print("GPU not available, using CPU.")
 print("--------------------")
 ################################################
-#environment setup
 os.makedirs(LOG_DIR, exist_ok=True)
 
 register(id='CrafterPartial-v1', entry_point='crafter:Env')
 env = old_gym.make('CrafterPartial-v1')
-
 env = crafter.Recorder(
     env,
     LOG_DIR,
@@ -40,19 +37,18 @@ env = crafter.Recorder(
 )
 env = GymV21CompatibilityV0(env=env)
 
-env = RewardShaping(env)
-# ----------------------------------------
+# env = RewardShaping(env)
 
 ################################################
 #hyperparameters
 LEARNING_RATE = 1e-4
 GAMMA = 0.99
-NUM_EPISODES = 2000 
+NUM_EPISODES = 5000
 FEATURE_DIM = 512
 ################################################
 #training
 num_actions = env.action_space.n
-policy_network = PolicyNetwork(num_actions=num_actions, feature_dim=FEATURE_DIM) 
+policy_network = PolicyNetwork(num_actions=num_actions, feature_dim=FEATURE_DIM)
 
 episode_rewards, episode_losses = train(
     env=env,
@@ -65,9 +61,16 @@ episode_rewards, episode_losses = train(
 print("\n--- Training Complete ---")
 env.close()
 ################################################
-#evaluation
+#evaluation (remains the same)
 print("\n--- Starting Evaluation ---")
 stats_path = os.path.join(LOG_DIR, 'stats.jsonl')
+################################################
+#evaluation
+# Update model save path
+model_path = os.path.join(LOG_DIR, 'reinforce_lstm_tuned_model.pth')
+torch.save(policy_network.state_dict(), model_path)
+print(f"\nModel saved to {model_path}")
+
 try:
     df = pd.read_json(stats_path, lines=True)
     avg_cumulative_reward = df['reward'].mean()
@@ -93,7 +96,7 @@ except FileNotFoundError:
 except Exception as e:
     print(f"An error occurred during evaluation: {e}")
 
-model_path = os.path.join(LOG_DIR, 'reinforce_lstm_shaped_model.pth')
+model_path = os.path.join(LOG_DIR, 'reinforce_lstm_shaped_tuned_model.pth') 
 torch.save(policy_network.state_dict(), model_path)
 print(f"\nModel saved to {model_path}")
 

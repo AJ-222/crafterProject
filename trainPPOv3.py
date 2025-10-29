@@ -1,5 +1,3 @@
-# train_ppo_lstm_shaped_tuned.py
-
 import gym as old_gym
 from gym.envs.registration import register
 from shimmy import GymV21CompatibilityV0
@@ -38,12 +36,16 @@ os.makedirs(LOG_DIR, exist_ok=True)
 
 register(id='CrafterPartial-v1', entry_point='crafter:Env')
 env = old_gym.make('CrafterPartial-v1')
-
-env = crafter.Recorder(env, LOG_DIR, save_stats=True)
+env = crafter.Recorder(
+    env,
+    LOG_DIR,
+    save_stats=True,
+    save_video=False,
+    save_episode=False,
+)
 env = GymV21CompatibilityV0(env=env)
 env = RewardShaping(env) 
 env = DummyVecEnv([lambda: env])
-
 INFINITE_TIMESTEPS = int(1e10)
 train_ppo_tuned(
     env=env,

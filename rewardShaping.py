@@ -1,11 +1,7 @@
 import gymnasium as gym
 import numpy as np
 
-class RewardShaping(gym.Wrapper): 
-    """
-    Applies reward shaping bonuses for key intermediate achievements in Crafter.
-    Bonuses are given only once per episode.
-    """
+class RewardShaping(gym.Wrapper):
     def __init__(self, env):
         super().__init__(env)
         self.bonuses_given = set()
@@ -36,5 +32,5 @@ class RewardShaping(gym.Wrapper):
             if info.get(full_ach_name, 0) > 0 and ach_name not in self.bonuses_given:
                 shaped_reward += bonus_value
                 self.bonuses_given.add(ach_name)
-        
+
         return observation, shaped_reward, terminated, truncated, info

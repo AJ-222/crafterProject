@@ -1,3 +1,5 @@
+# train.py
+
 import gym as old_gym
 from gym.envs.registration import register
 from shimmy import GymV21CompatibilityV0
@@ -12,7 +14,7 @@ from scipy.stats import gmean
 from reinforceV2 import ActorCriticNetwork as PolicyNetwork, train
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-LOG_DIR = './logdir/reinforce_base_run'
+LOG_DIR = './logdir/reinforce_a2c_tuned_run'
 
 #devicecheck
 print("--------------------")
@@ -41,7 +43,7 @@ env = GymV21CompatibilityV0(env=env)
 #hyperparameters
 LEARNING_RATE = 1e-4
 GAMMA = 0.99
-NUM_EPISODES = 5000
+NUM_EPISODES = 5000 # Keep 5000
 FEATURE_DIM = 512
 ################################################
 #training
@@ -75,7 +77,7 @@ try:
         print("  No achievement data found.")
     else:
         for ach in achievement_cols:
-            rate = df[ach].mean()
+            rate = df[ach].apply(lambda x: 1 if x > 0 else 0).mean()
             unlock_rates.append(rate)
             ach_name = ach.replace('achievement_', '').replace('_', ' ').title()
             print(f"  - {ach_name:<25}: {rate:.2%}")
@@ -87,13 +89,13 @@ except FileNotFoundError:
 except Exception as e:
     print(f"An error occurred during evaluation: {e}")
 
-model_path = os.path.join(LOG_DIR, 'reinforce_model.pth')
+model_path = os.path.join(LOG_DIR, 'reinforce_a2c_tuned_model.pth')
 torch.save(policy_network.state_dict(), model_path)
 print(f"\nModel saved to {model_path}")
 
 plt.figure(figsize=(10, 5))
 plt.plot(episode_rewards)
-plt.title("Total Reward per Episode (Vanilla REINFORCE)")
+plt.title("Total Reward per Episode (Actor-Critic Tuned)")
 plt.xlabel("Episode")
 plt.ylabel("Total Reward")
 plt.grid(True)
@@ -102,7 +104,7 @@ plt.show()
 
 plt.figure(figsize=(10, 5))
 plt.plot(episode_losses)
-plt.title("Training Loss per Episode (Vanilla REINFORCE)")
+plt.title("Training Loss per Episode (Actor-Critic Tuned)")
 plt.xlabel("Episode")
 plt.ylabel("Loss")
 plt.grid(True)
